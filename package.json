@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently \"npm run server\" \"npm run retailers\"",
+    "dev": "concurrently \"npm run server\" \"npm run retailers\" \"npm run consumers\"",
+    "dev:retailers": "concurrently \"npm run server\" \"npm run retailers\"",
+    "dev:consumers": "concurrently \"npm run server\" \"npm run consumers\"",
+    "seed": "node scripts/seed.js",
     "retailers": "npm start --prefix retailers",
     "consumers": "npm start --prefix consumers",
     "server": "nodemon server/server.js"
@@ -33,6 +36,7 @@
     "multer": "^1.4.3"
   },
   "devDependencies": {
-    "nodemon": "^2.0.12"
+    "nodemon": "^2.0.12",
+    "playwright": "^1.59.1"
   }
 }

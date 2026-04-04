@@ -4,16 +4,18 @@ const RetailersSchema = new Schema(
     companyName: {
       required: true,
       type: String,
-      index: true,
+      trim: true,
     },
     contactNumber: {
-      type: Number,
-      unique: true,
+      type: String,
+      default: "",
     },
     email: {
       type: String,
       required: true,
-      index: { unique: true },
+      unique: true,
+      lowercase: true,
+      trim: true,
     },
     password: {
       type: String,
@@ -23,23 +25,46 @@ const RetailersSchema = new Schema(
     contactName: {
       type: String,
       required: true,
+      trim: true,
     },
-    gstNumber: String,
-    panNumber: String,
+    gstNumber: {
+      type: String,
+      default: "",
+    },
+    panNumber: {
+      type: String,
+      default: "",
+    },
     companyLogo: {
       type: String,
-      default: "default-1631444762694.png",
+      default: "",
+    },
+    address: {
+      line1: { type: String, default: "" },
+      city: { type: String, default: "" },
+      state: { type: String, default: "" },
+      country: { type: String, default: "" },
+      postalCode: { type: String, default: "" },
     },
   },
-  { versionKey: false }
+  { timestamps: true, versionKey: false },
 );
-RetailersSchema.methods.getUserReadableData = function () {
+
+RetailersSchema.methods.toPublicJSON = function () {
   return {
     id: this._id,
     email: this.email,
     contactName: this.contactName,
     contactNumber: this.contactNumber,
     companyName: this.companyName,
+    companyLogo: this.companyLogo,
+    gstNumber: this.gstNumber,
+    panNumber: this.panNumber,
+    address: this.address,
+    createdAt: this.createdAt,
   };
 };
+
+RetailersSchema.methods.getUserReadableData =
+  RetailersSchema.methods.toPublicJSON;
 module.exports = model("retailers", RetailersSchema);

@@ -1,21 +1,27 @@
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
 dotenv.config();
-const jwtSecret = process.env.tokenSecretKey;
+const jwtSecret = process.env.tokenSecretKey || "rect-with-node-secret";
 module.exports = function (req, res, next) {
-  // Get token from header
-  const token = req.header("x-auth-token");
+  const authHeader = req.header("authorization");
+  const token =
+    req.header("x-auth-token") ||
+    (authHeader && authHeader.startsWith("Bearer ")
+      ? authHeader.replace("Bearer ", "")
+      : null);
 
-  // Check if not token
   if (!token) {
-    return res.status(401).json({ msg: "No token, authorization denied" });
+    return res
+      .status(401)
+      .json({ success: false, message: "No token, authorization denied" });
   }
 
-  // Verify token
   try {
     jwt.verify(token, jwtSecret, (error, decoded) => {
       if (error) {
-        return res.status(401).json({ msg: "Token is not valid" });
+        return res
+          .status(401)
+          .json({ success: false, message: "Token is not valid" });
       } else {
         req.user = decoded;
         next();
@@ -23,6 +29,6 @@ module.exports = function (req, res, next) {
     });
   } catch (err) {
     console.error("something wrong with auth middleware");
-    res.status(500).json({ msg: "Server Error" });
+    res.status(500).json({ success: false, message: "Server Error" });
   }
 };

@@ -4,24 +4,49 @@ const ConsumersSchema = new Schema(
     name: {
       required: true,
       type: String,
-      index: true,
+      trim: true,
     },
     mobileNumber: {
-      type: Number,
-      unique: true,
+      type: String,
+      default: "",
     },
-    emailId: {
+    email: {
       type: String,
       required: true,
-      index: { unique: true },
+      unique: true,
+      lowercase: true,
+      trim: true,
     },
     password: {
       type: String,
       required: true,
       select: false,
     },
-    profilePhoto: String,
+    profilePhoto: {
+      type: String,
+      default: "",
+    },
+    shippingAddress: {
+      line1: { type: String, default: "" },
+      city: { type: String, default: "" },
+      state: { type: String, default: "" },
+      country: { type: String, default: "" },
+      postalCode: { type: String, default: "" },
+    },
   },
-  { versionKey: false }
+  { timestamps: true, versionKey: false },
 );
-export default model("consumers", ConsumersSchema);
+
+ConsumersSchema.methods.toPublicJSON = function () {
+  return {
+    id: this._id,
+    name: this.name,
+    email: this.email,
+    mobileNumber: this.mobileNumber,
+    profilePhoto: this.profilePhoto,
+    shippingAddress: this.shippingAddress,
+    createdAt: this.createdAt,
+  };
+};
+
+module.exports = model("consumers", ConsumersSchema);

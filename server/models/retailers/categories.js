@@ -2,25 +2,49 @@ const { Schema, Types, model } = require("mongoose");
 
 const CategoriesSchema = new Schema(
   {
-    categoryName: {
+    retailer: {
+      type: Types.ObjectId,
+      ref: "retailers",
       required: true,
-      type: String,
       index: true,
     },
-    categoryImage: {
+    name: {
+      required: true,
       type: String,
-      default: "default-1631444762694.png",
+      trim: true,
     },
-    retailers: [{ type: Types.ObjectId, ref: "retailers", index: true }],
+    slug: {
+      required: true,
+      type: String,
+      trim: true,
+    },
+    description: {
+      type: String,
+      default: "",
+    },
+    imageUrl: {
+      type: String,
+      default: "",
+    },
   },
-  { versionKey: false }
+  { timestamps: true, versionKey: false },
 );
 
-CategoriesSchema.methods.getUserReadableData = function () {
+CategoriesSchema.index({ retailer: 1, slug: 1 }, { unique: true });
+
+CategoriesSchema.methods.toPublicJSON = function () {
   return {
     id: this._id,
-    categoryName: this.categoryName,
-    categoryImage: this.categoryImage,
+    retailer: this.retailer,
+    name: this.name,
+    slug: this.slug,
+    description: this.description,
+    imageUrl: this.imageUrl,
+    createdAt: this.createdAt,
+    updatedAt: this.updatedAt,
   };
 };
+
+CategoriesSchema.methods.getUserReadableData =
+  CategoriesSchema.methods.toPublicJSON;
 module.exports = model("categories", CategoriesSchema);

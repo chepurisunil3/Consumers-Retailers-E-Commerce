@@ -1,19 +1,32 @@
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+
 dotenv.config();
+
+const MONGODB_URI =
+  process.env.MongoDBURI ||
+  process.env.MONGODB_URI ||
+  "mongodb://127.0.0.1:27017/rect-with-node";
+
+let isConnected = false;
+
 const connectToMongoDB = async () => {
-    try {
-        await mongoose.connect(process.env.MongoDBURI,{
-            useNewUrlParser: true,
-            useCreateIndex: true,
-            useFindAndModify: false,
-            useUnifiedTopology: true
-        });
-    }
-    catch (e) {
-        console.log(e)
-        process.exit(1);
-    }
-    
-}
+  if (isConnected) {
+    return mongoose.connection;
+  }
+
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    isConnected = true;
+    console.log(`Connected to MongoDB at ${MONGODB_URI}`);
+    return mongoose.connection;
+  } catch (error) {
+    console.error("Unable to connect to MongoDB", error);
+    process.exit(1);
+  }
+};
+
 module.exports = connectToMongoDB;

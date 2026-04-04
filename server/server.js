@@ -2,40 +2,77 @@ const express = require("express");
 const dotenv = require("dotenv");
 const path = require("path");
 const connectToMongoDB = require("../config/mongo-connection");
-const app = express();
 const retailersRouter = require("./routes/retailers");
 const productsRouter = require("./routes/products");
-const PORT = process.env.PORT;
+const consumersRouter = require("./routes/consumers");
+const storeRouter = require("./routes/store");
+const ordersRouter = require("./routes/orders");
 const cors = require("cors");
-const allowedOrigins = ["http://localhost:3000", "http://localhost:3001"];
+
 dotenv.config();
+
+const app = express();
+const PORT = Number(process.env.PORT || 4000);
+const allowedOrigins = (
+  process.env.ALLOWED_ORIGINS ||
+  "http://localhost:3000,http://localhost:3002,http://localhost:4000"
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 connectToMongoDB();
 
 app.use(
   cors({
     origin: (origin, callback) => {
+      if (process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) === -1) {
-        var msg =
+        const msg =
           "The CORS policy for this site does not " +
           "allow access from the specified Origin.";
         return callback(new Error(msg), false);
       }
       return callback(null, true);
     },
-  })
+  }),
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.get("/", (req, res) => {
-  res.send("Hello World from Windows!");
+  res.json({
+    success: true,
+    message: "Rect-with-Node API is running.",
+    services: ["retailers", "consumers", "store", "orders"],
+  });
+});
+app.get("/api/health", (req, res) => {
+  res
+    .status(200)
+    .json({ success: true, status: "ok", timestamp: new Date().toISOString() });
 });
 app.use("/static", express.static(path.join(__dirname, "../static")));
 app.use("/uploads", express.static("uploads"));
 app.use("/retailers", retailersRouter);
 app.use("/products", productsRouter);
+app.use("/api/retailers", retailersRouter);
+app.use("/api/consumers", consumersRouter);
+app.use("/api/store", storeRouter);
+app.use("/api/orders", ordersRouter);
+
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: "Route not found." });
+});
+
+app.use((error, req, res, next) => {
+  console.error(error);
+  res.status(500).json({ success: false, message: "Unexpected server error." });
+});
+
 app.listen(PORT, () => {
-  console.log("\n");
-  console.log(path.join(__dirname, "../static"));
   console.log(`Running on port ${PORT}`);
 });

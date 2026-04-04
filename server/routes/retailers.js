@@ -1,34 +1,45 @@
 const express = require("express");
 const router = express.Router();
-const multer = require("multer");
-const { createMulterDiskStorage } = require("../utils/multer-disk-storage");
-const { UserValidator } = require("../validators/retailers/users");
-const { ProductsValidator } = require("../validators/retailers/products");
+const auth = require("../middlewares/auth");
+const requireRole = require("../middlewares/require-role");
 const {
-  addUser,
-  checkLogin,
-  getUserDetails,
-} = require("../controllers/retailers/users");
-const { deleteCategory } = require("../controllers/retailers/products");
-const authMiddleware = require("../middlewares/auth");
+  registerRetailer,
+  loginRetailer,
+  getRetailerProfile,
+} = require("../controllers/retailers/auth");
+const {
+  listCategories,
+  createCategory,
+  deleteCategory,
+  listProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getRetailerDashboard,
+} = require("../controllers/retailers/catalog");
 
-const logoStorage = createMulterDiskStorage(
-  "./static/retailers/logos",
-  "companyName"
-);
-const logoUpload = multer({ storage: logoStorage });
+router.post("/auth/register", registerRetailer);
+router.post("/auth/login", loginRetailer);
+router.get("/auth/me", auth, requireRole("retailer"), getRetailerProfile);
+router.get("/dashboard", auth, requireRole("retailer"), getRetailerDashboard);
 
-router.post(
-  "/addUser",
-  logoUpload.single("companyLogo"),
-  UserValidator("ADD_USER"),
-  addUser
-);
-router.get("/checkLogin", UserValidator("CHECK_LOGIN"), checkLogin);
-router.get("/getUser", authMiddleware, getUserDetails);
+router.get("/categories", auth, requireRole("retailer"), listCategories);
+router.post("/categories", auth, requireRole("retailer"), createCategory);
+router.delete("/categories/:id", auth, requireRole("retailer"), deleteCategory);
+
+router.get("/products", auth, requireRole("retailer"), listProducts);
+router.post("/products", auth, requireRole("retailer"), createProduct);
+router.patch("/products/:id", auth, requireRole("retailer"), updateProduct);
+router.delete("/products/:id", auth, requireRole("retailer"), deleteProduct);
+
+router.post("/addUser", registerRetailer);
+router.post("/checkLogin", loginRetailer);
+router.get("/getUser", auth, requireRole("retailer"), getRetailerProfile);
 router.delete(
   "/deleteCategory/:id",
-  ProductsValidator("DELETE_CATEGORY"),
-  deleteCategory
+  auth,
+  requireRole("retailer"),
+  deleteCategory,
 );
+
 module.exports = router;
