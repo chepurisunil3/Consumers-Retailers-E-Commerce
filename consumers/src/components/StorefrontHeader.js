@@ -1,146 +1,95 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
+import { consumerApi } from "../services/api";
 
-function StorefrontHeader({
-  user,
-  query,
-  setQuery,
-  cartCount,
-  onAuthToggle,
-  isAuthenticated,
-  accountMenuOpen,
-  onAccountMenuToggle,
-  onCloseAccountMenu,
-  onViewOrders,
-  onOpenProfile,
-  onLogout,
-}) {
+export default function StorefrontHeader() {
+  const { isAuthenticated, user, logout } = useAuth();
+  const { itemCount } = useCart();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get("q") || "");
+  const [categories, setCategories] = useState([]);
+  const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
-    if (!accountMenuOpen) {
-      return undefined;
-    }
+    consumerApi.getCategories().then((res) => setCategories(res.data.slice(0, 8))).catch(() => {});
+  }, []);
 
-    const handlePointerDown = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        onCloseAccountMenu();
-      }
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) setMenuOpen(false);
     };
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
 
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-    };
-  }, [accountMenuOpen, onCloseAccountMenu]);
+  const handleSearch = (event) => {
+    event.preventDefault();
+    navigate(`/products${query ? `?q=${encodeURIComponent(query)}` : ""}`);
+  };
 
-  const initials = (user.name || "Guest")
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const handleLogout = () => {
+    logout();
+    setMenuOpen(false);
+    navigate("/");
+  };
 
   return (
-    <header className="storefront-header glass-card">
-      <div className="store-header-copy">
-        <span className="eyebrow">Modern commerce storefront</span>
-        <h1>Discover curated products from live retailer catalogs.</h1>
-        <p>
-          Shop from multiple retailers, filter inventory by category, and place
-          verified orders from a refreshed consumer experience.
-        </p>
-      </div>
-
-      <div className="storefront-actions">
-        <label className="search-box">
-          <span>Search</span>
+    <header className="storefront-header">
+      <div className="header-top">
+        <Link to="/" className="header-brand">
+          Shop<span>Desi</span>
+        </Link>
+        <form className="header-search" onSubmit={handleSearch}>
           <input
+            placeholder="Search for products, brands and more"
             value={query}
-            placeholder="Search products or tags"
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(e) => setQuery(e.target.value)}
           />
-        </label>
-        <div className="profile-chip" ref={menuRef}>
+          <button type="submit">Search</button>
+        </form>
+        <div className="header-links">
           {isAuthenticated ? (
-            <>
-              <div className="account-summary">
-                {user.profilePhoto ? (
-                  <img
-                    src={user.profilePhoto}
-                    alt={user.name || "Consumer"}
-                    className="account-avatar"
-                  />
-                ) : (
-                  <div className="account-avatar account-avatar-fallback">
-                    {initials}
-                  </div>
-                )}
-                <div>
-                  <strong>{user.name || "shopper"}</strong>
-                  <p className="muted-text account-summary-text">
-                    {user.email || "Signed-in consumer"}
-                  </p>
-                </div>
+            <div className="account-menu" ref={menuRef}>
+              <div className="header-link header-cart" onClick={() => setMenuOpen((v) => !v)} role="button" tabIndex={0}>
+                <small>Hello, {user?.name?.split(" ")[0]}</small>
+                <strong>Account ▾</strong>
               </div>
-
-              <div className="profile-actions-inline">
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={onAccountMenuToggle}
-                >
-                  Account
-                </button>
-                <div className="cart-pill">Cart {cartCount}</div>
-              </div>
-
-              {accountMenuOpen ? (
-                <div className="account-dropdown glass-card">
-                  <div className="account-dropdown-header">
-                    <strong>{user.name || "Consumer account"}</strong>
-                    <span>{user.mobileNumber || user.email}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="dropdown-action"
-                    onClick={onViewOrders}
-                  >
-                    My orders
-                  </button>
-                  <button
-                    type="button"
-                    className="dropdown-action"
-                    onClick={onOpenProfile}
-                  >
-                    Update account
-                  </button>
-                  <button
-                    type="button"
-                    className="dropdown-action danger"
-                    onClick={onLogout}
-                  >
-                    Logout
-                  </button>
+              {menuOpen && (
+                <div className="account-dropdown">
+                  <Link to="/orders" onClick={() => setMenuOpen(false)}>Your orders</Link>
+                  <Link to="/addresses" onClick={() => setMenuOpen(false)}>Your addresses</Link>
+                  <Link to="/profile" onClick={() => setMenuOpen(false)}>Your profile</Link>
+                  <button onClick={handleLogout}>Log out</button>
                 </div>
-              ) : null}
-            </>
+              )}
+            </div>
           ) : (
-            <>
-              <span>Guest shopper</span>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => onAuthToggle("login")}
-              >
-                Login / Register
-              </button>
-              <div className="cart-pill">Cart {cartCount}</div>
-            </>
+            <Link to="/login" className="header-link">
+              <small>Hello, sign in</small>
+              <strong>Account</strong>
+            </Link>
           )}
+          <Link to="/orders" className="header-link">
+            <small>Returns</small>
+            <strong>& Orders</strong>
+          </Link>
+          <Link to="/cart" className="header-link header-cart">
+            🛒 Cart {itemCount > 0 && <span className="cart-badge">{itemCount}</span>}
+          </Link>
         </div>
       </div>
+      <nav className="header-categories">
+        <Link to="/products">All Products</Link>
+        {categories.map((category) => (
+          <Link key={category.id} to={`/products?categoryId=${category.id}`}>
+            {category.name}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }
-
-export default StorefrontHeader;

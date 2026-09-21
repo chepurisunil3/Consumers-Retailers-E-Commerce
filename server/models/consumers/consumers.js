@@ -1,4 +1,20 @@
 const { Schema, model } = require("mongoose");
+
+const AddressSchema = new Schema(
+  {
+    label: { type: String, default: "Home" },
+    line1: { type: String, required: true, trim: true },
+    line2: { type: String, default: "", trim: true },
+    city: { type: String, required: true, trim: true },
+    state: { type: String, required: true, trim: true },
+    country: { type: String, default: "India", trim: true },
+    postalCode: { type: String, required: true, trim: true },
+    phone: { type: String, default: "", trim: true },
+    isDefault: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+
 const ConsumersSchema = new Schema(
   {
     name: {
@@ -33,6 +49,10 @@ const ConsumersSchema = new Schema(
       country: { type: String, default: "" },
       postalCode: { type: String, default: "" },
     },
+    addresses: {
+      type: [AddressSchema],
+      default: [],
+    },
   },
   { timestamps: true, versionKey: false },
 );
@@ -45,6 +65,7 @@ ConsumersSchema.methods.toPublicJSON = function () {
     mobileNumber: this.mobileNumber,
     profilePhoto: this.profilePhoto,
     shippingAddress: this.shippingAddress,
+    addresses: this.addresses,
     createdAt: this.createdAt,
   };
 };

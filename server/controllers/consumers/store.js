@@ -22,9 +22,16 @@ const serializeProduct = (product) => ({
   slug: product.slug,
   description: product.description,
   imageUrl: product.imageUrl,
+  images: product.images,
   sku: product.sku,
-  price: product.price,
+  mrp: product.mrp,
+  discountPercent: product.discountPercent,
+  price: product.finalPrice,
+  finalPrice: product.finalPrice,
+  savings: Number((product.mrp - product.finalPrice).toFixed(2)),
   inventory: product.inventory,
+  inStock: product.inventory > 0,
+  attributes: product.attributes ? Object.fromEntries(product.attributes) : {},
   isFeatured: product.isFeatured,
   category: product.category
     ? {
@@ -77,6 +84,10 @@ const listStoreProducts = async (req, res) => {
       query.isFeatured = true;
     }
 
+    if (req.query.onDiscount === "true") {
+      query.discountPercent = { $gt: 0 };
+    }
+
     if (req.query.q) {
       query.$or = [
         { name: { $regex: req.query.q, $options: "i" } },
@@ -85,10 +96,15 @@ const listStoreProducts = async (req, res) => {
       ];
     }
 
+    let sort = { isFeatured: -1, createdAt: -1 };
+    if (req.query.sort === "price_asc") sort = { finalPrice: 1 };
+    if (req.query.sort === "price_desc") sort = { finalPrice: -1 };
+    if (req.query.sort === "discount") sort = { discountPercent: -1 };
+
     const products = await Product.find(query)
       .populate("category", "name slug")
       .populate("retailer", "companyName companyLogo")
-      .sort({ isFeatured: -1, createdAt: -1 });
+      .sort(sort);
 
     return res
       .status(200)
@@ -127,8 +143,39 @@ const getStoreProductById = async (req, res) => {
   }
 };
 
+const getSuggestedProducts = async (req, res) => {
+  try {
+    const product = await Product.findOne({ _id: req.params.id, isActive: true });
+    if (!product) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found." });
+    }
+
+    const suggestions = await Product.find({
+      _id: { $ne: product._id },
+      category: product.category,
+      isActive: true,
+    })
+      .populate("category", "name slug")
+      .populate("retailer", "companyName companyLogo")
+      .sort({ discountPercent: -1, isFeatured: -1, createdAt: -1 })
+      .limit(6);
+
+    return res
+      .status(200)
+      .json({ success: true, data: suggestions.map(serializeProduct) });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Unable to fetch suggestions." });
+  }
+};
+
 module.exports = {
   listStoreCategories,
   listStoreProducts,
   getStoreProductById,
+  getSuggestedProducts,
 };

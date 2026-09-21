@@ -6,7 +6,7 @@ const SALT_ROUNDS = Number(process.env.saltRounds || 10);
 
 const buildRetailerResponse = (retailer, token) => ({
   success: true,
-  data: retailer.toPublicJSON(),
+  data: { ...retailer.toPublicJSON(), staffRole: "owner" },
   token,
 });
 
@@ -15,9 +15,20 @@ const validateRegisterPayload = ({
   contactName,
   email,
   password,
+  industry,
+  gstNumber,
+  panNumber,
 }) => {
   if (!companyName || !contactName || !email || !password) {
     return "Company name, contact name, email and password are required.";
+  }
+
+  if (!industry) {
+    return "Please select the industry your business operates in.";
+  }
+
+  if (!gstNumber || !panNumber) {
+    return "GSTIN and PAN are required to onboard as a retailer.";
   }
 
   if (String(password).length < 6) {
@@ -44,22 +55,37 @@ const registerRetailer = async (req, res) => {
 
     const password = await bcrypt.hash(String(req.body.password), SALT_ROUNDS);
 
-    const retailer = await Retailer.create({
-      companyName: req.body.companyName,
-      contactName: req.body.contactName,
-      email,
-      password,
-      contactNumber: req.body.contactNumber || "",
-      gstNumber: req.body.gstNumber || "",
-      panNumber: req.body.panNumber || "",
-      companyLogo: req.body.companyLogo || "",
-      address: req.body.address || {},
-    });
+    let retailer;
+    try {
+      retailer = await Retailer.create({
+        companyName: req.body.companyName,
+        contactName: req.body.contactName,
+        email,
+        password,
+        contactNumber: req.body.contactNumber || "",
+        industry: req.body.industry,
+        gstNumber: String(req.body.gstNumber).toUpperCase().trim(),
+        panNumber: String(req.body.panNumber).toUpperCase().trim(),
+        companyLogo: req.body.companyLogo || "",
+        address: req.body.address || {},
+        bankDetails: req.body.bankDetails || {},
+      });
+    } catch (validationErr) {
+      if (validationErr.name === "ValidationError") {
+        const message = Object.values(validationErr.errors)
+          .map((err) => err.message)
+          .join(" ");
+        return res.status(400).json({ success: false, message });
+      }
+      throw validationErr;
+    }
 
     const token = await getToken({
       id: retailer._id,
       email: retailer.email,
       role: "retailer",
+      retailerId: retailer._id,
+      staffRole: "owner",
     });
 
     return res.status(201).json(buildRetailerResponse(retailer, token));
@@ -102,6 +128,8 @@ const loginRetailer = async (req, res) => {
       id: retailer._id,
       email: retailer.email,
       role: "retailer",
+      retailerId: retailer._id,
+      staffRole: "owner",
     });
 
     return res.status(200).json(buildRetailerResponse(retailer, token));
@@ -115,16 +143,20 @@ const loginRetailer = async (req, res) => {
 
 const getRetailerProfile = async (req, res) => {
   try {
-    const retailer = await Retailer.findById(req.user.id);
+    const retailer = await Retailer.findById(req.user.retailerId);
     if (!retailer) {
       return res
         .status(404)
         .json({ success: false, message: "Retailer account not found." });
     }
 
-    return res
-      .status(200)
-      .json({ success: true, data: retailer.toPublicJSON() });
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...retailer.toPublicJSON(),
+        staffRole: req.user.staffRole,
+      },
+    });
   } catch (error) {
     console.error(error);
     return res
@@ -133,8 +165,46 @@ const getRetailerProfile = async (req, res) => {
   }
 };
 
+const updateRetailerProfile = async (req, res) => {
+  try {
+    const retailer = await Retailer.findById(req.user.retailerId);
+    if (!retailer) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Retailer account not found." });
+    }
+
+    const editable = ["companyName", "contactName", "contactNumber", "companyLogo"];
+    editable.forEach((field) => {
+      if (typeof req.body[field] === "string") {
+        retailer[field] = req.body[field];
+      }
+    });
+
+    if (req.body.address) {
+      retailer.address = { ...retailer.address.toObject(), ...req.body.address };
+    }
+
+    if (req.body.bankDetails) {
+      retailer.bankDetails = {
+        ...retailer.bankDetails.toObject(),
+        ...req.body.bankDetails,
+      };
+    }
+
+    await retailer.save();
+    return res.status(200).json({ success: true, data: retailer.toPublicJSON() });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Unable to update retailer profile." });
+  }
+};
+
 module.exports = {
   registerRetailer,
   loginRetailer,
   getRetailerProfile,
+  updateRetailerProfile,
 };

@@ -1,6 +1,7 @@
 const Category = require("../../models/retailers/categories");
 const Product = require("../../models/retailers/products");
 const Order = require("../../models/consumers/orders");
+const { PERMISSIONS } = require("../../middlewares/require-permission");
 
 const slugify = (value = "") =>
   String(value)
@@ -19,20 +20,20 @@ const serializeCategory = (category) => ({
   updatedAt: category.updatedAt,
 });
 
+const parseAttributes = (rawAttributes) => {
+  if (!rawAttributes) return {};
+  if (typeof rawAttributes === "string") {
+    try {
+      return JSON.parse(rawAttributes);
+    } catch (error) {
+      return {};
+    }
+  }
+  return rawAttributes;
+};
+
 const serializeProduct = (product) => ({
-  id: product._id,
-  name: product.name,
-  slug: product.slug,
-  description: product.description,
-  imageUrl: product.imageUrl,
-  sku: product.sku,
-  price: product.price,
-  inventory: product.inventory,
-  isFeatured: product.isFeatured,
-  isActive: product.isActive,
-  tags: product.tags,
-  createdAt: product.createdAt,
-  updatedAt: product.updatedAt,
+  ...product.toPublicJSON(),
   category: product.category
     ? {
         id: product.category._id || product.category,
@@ -44,7 +45,7 @@ const serializeProduct = (product) => ({
 
 const listCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ retailer: req.user.id }).sort({
+    const categories = await Category.find({ retailer: req.user.retailerId }).sort({
       createdAt: -1,
     });
     return res
@@ -69,7 +70,7 @@ const createCategory = async (req, res) => {
 
     const slug = slugify(name);
     const existingCategory = await Category.findOne({
-      retailer: req.user.id,
+      retailer: req.user.retailerId,
       slug,
     });
     if (existingCategory) {
@@ -79,7 +80,7 @@ const createCategory = async (req, res) => {
     }
 
     const category = await Category.create({
-      retailer: req.user.id,
+      retailer: req.user.retailerId,
       name,
       slug,
       description: req.body.description || "",
@@ -101,7 +102,7 @@ const deleteCategory = async (req, res) => {
   try {
     const category = await Category.findOne({
       _id: req.params.id,
-      retailer: req.user.id,
+      retailer: req.user.retailerId,
     });
     if (!category) {
       return res
@@ -111,15 +112,13 @@ const deleteCategory = async (req, res) => {
 
     const productsCount = await Product.countDocuments({
       category: category._id,
-      retailer: req.user.id,
+      retailer: req.user.retailerId,
     });
     if (productsCount > 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Delete the products in this category before deleting it.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Delete the products in this category before deleting it.",
+      });
     }
 
     await category.deleteOne();
@@ -134,7 +133,7 @@ const deleteCategory = async (req, res) => {
 
 const listProducts = async (req, res) => {
   try {
-    const products = await Product.find({ retailer: req.user.id })
+    const products = await Product.find({ retailer: req.user.retailerId })
       .populate("category", "name slug")
       .sort({ createdAt: -1 });
 
@@ -153,26 +152,20 @@ const createProduct = async (req, res) => {
   try {
     const { name, description, imageUrl, sku } = req.body;
     const categoryId = req.body.categoryId || req.body.category;
-    const price = Number(req.body.price);
+    const mrp = Number(req.body.mrp ?? req.body.price);
+    const discountPercent = Number(req.body.discountPercent || 0);
     const inventory = Number(req.body.inventory);
 
-    if (
-      !name ||
-      !categoryId ||
-      Number.isNaN(price) ||
-      Number.isNaN(inventory)
-    ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Name, category, price and inventory are required.",
-        });
+    if (!name || !categoryId || Number.isNaN(mrp) || Number.isNaN(inventory)) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, category, MRP and inventory are required.",
+      });
     }
 
     const category = await Category.findOne({
       _id: categoryId,
-      retailer: req.user.id,
+      retailer: req.user.retailerId,
     });
     if (!category) {
       return res
@@ -181,15 +174,18 @@ const createProduct = async (req, res) => {
     }
 
     const product = await Product.create({
-      retailer: req.user.id,
+      retailer: req.user.retailerId,
       category: category._id,
       name: String(name).trim(),
       slug: slugify(`${name}-${Date.now()}`),
       description: description || "",
       imageUrl: imageUrl || "",
+      images: Array.isArray(req.body.images) ? req.body.images : [],
       sku: sku || "",
-      price,
+      mrp,
+      discountPercent,
       inventory,
+      attributes: parseAttributes(req.body.attributes),
       isFeatured: Boolean(req.body.isFeatured),
       isActive: req.body.isActive !== false,
       tags: Array.isArray(req.body.tags)
@@ -200,7 +196,7 @@ const createProduct = async (req, res) => {
             .filter(Boolean),
     });
 
-    await product.populate("category", "name slug").execPopulate();
+    await product.populate("category", "name slug");
     return res
       .status(201)
       .json({ success: true, data: serializeProduct(product) });
@@ -216,7 +212,7 @@ const updateProduct = async (req, res) => {
   try {
     const product = await Product.findOne({
       _id: req.params.id,
-      retailer: req.user.id,
+      retailer: req.user.retailerId,
     });
     if (!product) {
       return res
@@ -227,7 +223,7 @@ const updateProduct = async (req, res) => {
     if (req.body.categoryId || req.body.category) {
       const nextCategory = await Category.findOne({
         _id: req.body.categoryId || req.body.category,
-        retailer: req.user.id,
+        retailer: req.user.retailerId,
       });
 
       if (!nextCategory) {
@@ -251,16 +247,28 @@ const updateProduct = async (req, res) => {
       product.imageUrl = req.body.imageUrl;
     }
 
+    if (Array.isArray(req.body.images)) {
+      product.images = req.body.images;
+    }
+
     if (typeof req.body.sku === "string") {
       product.sku = req.body.sku;
     }
 
-    if (req.body.price !== undefined) {
-      product.price = Number(req.body.price);
+    if (req.body.mrp !== undefined) {
+      product.mrp = Number(req.body.mrp);
+    }
+
+    if (req.body.discountPercent !== undefined) {
+      product.discountPercent = Number(req.body.discountPercent);
     }
 
     if (req.body.inventory !== undefined) {
       product.inventory = Number(req.body.inventory);
+    }
+
+    if (req.body.attributes !== undefined) {
+      product.attributes = parseAttributes(req.body.attributes);
     }
 
     if (req.body.isFeatured !== undefined) {
@@ -281,7 +289,7 @@ const updateProduct = async (req, res) => {
     }
 
     await product.save();
-    await product.populate("category", "name slug").execPopulate();
+    await product.populate("category", "name slug");
 
     return res
       .status(200)
@@ -298,7 +306,7 @@ const deleteProduct = async (req, res) => {
   try {
     const deleted = await Product.findOneAndDelete({
       _id: req.params.id,
-      retailer: req.user.id,
+      retailer: req.user.retailerId,
     });
     if (!deleted) {
       return res
@@ -317,44 +325,88 @@ const deleteProduct = async (req, res) => {
 
 const getRetailerDashboard = async (req, res) => {
   try {
-    const [categoriesCount, products, orders] = await Promise.all([
-      Category.countDocuments({ retailer: req.user.id }),
-      Product.find({ retailer: req.user.id })
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .populate("category", "name slug"),
-      Order.find({ "items.retailer": req.user.id })
-        .sort({ createdAt: -1 })
-        .limit(5),
-    ]);
-
-    const totalProducts = await Product.countDocuments({
-      retailer: req.user.id,
-    });
-    const lowStockProducts = await Product.countDocuments({
-      retailer: req.user.id,
-      inventory: { $lte: 5 },
-    });
-    const productInventory = await Product.find({
-      retailer: req.user.id,
-    }).select("inventory price");
-    const inventoryValue = productInventory.reduce(
-      (sum, current) => sum + current.inventory * current.price,
-      0,
+    const retailerId = req.user.retailerId;
+    const canSeeEarnings = PERMISSIONS["dashboard.earnings"].includes(
+      req.user.staffRole,
     );
 
-    const recentOrders = orders.map((order) => {
-      const retailerItems = order.items.filter(
-        (item) => String(item.retailer) === String(req.user.id),
+    const [categoriesCount, totalProducts, lowStockProducts, recentProducts] =
+      await Promise.all([
+        Category.countDocuments({ retailer: retailerId }),
+        Product.countDocuments({ retailer: retailerId }),
+        Product.countDocuments({ retailer: retailerId, inventory: { $lte: 5 } }),
+        Product.find({ retailer: retailerId })
+          .sort({ createdAt: -1 })
+          .limit(5)
+          .populate("category", "name slug"),
+      ]);
+
+    const lowStockList = await Product.find({
+      retailer: retailerId,
+      inventory: { $lte: 5 },
+    })
+      .select("name inventory imageUrl")
+      .limit(10);
+
+    const orders = await Order.find({ "items.retailer": retailerId }).sort({
+      createdAt: -1,
+    });
+
+    let earnings = 0;
+    let pendingAttentionCount = 0;
+    let oldestPendingAt = null;
+    const statusCounts = {};
+    const trendMap = new Map();
+    const now = Date.now();
+
+    orders.forEach((order) => {
+      const ownItems = order.items.filter(
+        (item) => String(item.retailer) === String(retailerId),
+      );
+
+      ownItems.forEach((item) => {
+        statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
+
+        if (item.status === "delivered") {
+          earnings += item.lineTotal;
+        }
+
+        if (item.status === "pending") {
+          pendingAttentionCount += 1;
+          const createdAt = order.createdAt;
+          if (!oldestPendingAt || createdAt < oldestPendingAt) {
+            oldestPendingAt = createdAt;
+          }
+        }
+
+        const daysAgo = Math.floor((now - order.createdAt.getTime()) / 86400000);
+        if (daysAgo >= 0 && daysAgo < 14) {
+          const dayKey = new Date(order.createdAt).toISOString().slice(0, 10);
+          trendMap.set(dayKey, (trendMap.get(dayKey) || 0) + item.lineTotal);
+        }
+      });
+    });
+
+    const recentOrders = orders.slice(0, 5).map((order) => {
+      const ownItems = order.items.filter(
+        (item) => String(item.retailer) === String(retailerId),
       );
       return {
         id: order._id,
         status: order.status,
-        total: retailerItems.reduce((sum, item) => sum + item.lineTotal, 0),
-        itemCount: retailerItems.reduce((sum, item) => sum + item.quantity, 0),
+        total: ownItems.reduce((sum, item) => sum + item.lineTotal, 0),
+        itemCount: ownItems.reduce((sum, item) => sum + item.quantity, 0),
         createdAt: order.createdAt,
       };
     });
+
+    const productInventory = await Product.find({ retailer: retailerId }).select(
+      "inventory finalPrice",
+    );
+    const inventoryValue = productInventory.reduce(
+      (sum, current) => sum + current.inventory * current.finalPrice,
+      0,
+    );
 
     return res.status(200).json({
       success: true,
@@ -363,9 +415,17 @@ const getRetailerDashboard = async (req, res) => {
           categoriesCount,
           productsCount: totalProducts,
           lowStockProducts,
-          inventoryValue,
+          inventoryValue: canSeeEarnings ? inventoryValue : null,
+          earnings: canSeeEarnings ? Number(earnings.toFixed(2)) : null,
+          ordersByStatus: statusCounts,
+          pendingAttentionCount,
+          oldestPendingAt,
         },
-        recentProducts: products.map(serializeProduct),
+        trend: Array.from(trendMap.entries())
+          .sort(([a], [b]) => (a > b ? 1 : -1))
+          .map(([date, total]) => ({ date, total: Number(total.toFixed(2)) })),
+        lowStockList,
+        recentProducts: recentProducts.map(serializeProduct),
         recentOrders,
       },
     });

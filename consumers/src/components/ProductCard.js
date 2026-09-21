@@ -1,43 +1,23 @@
-import React from "react";
+import { Link } from "react-router-dom";
+import { formatCurrency } from "../utils/format";
 
-function ProductCard({ product, onAddToCart }) {
+export default function ProductCard({ product }) {
+  const outOfStock = product.inventory <= 0;
+  const lowStock = !outOfStock && product.inventory <= 5;
+
   return (
-    <article className="product-card glass-card">
-      <div className="product-image-wrap">
-        {product.imageUrl ? (
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="product-image"
-          />
-        ) : (
-          <div className="product-image placeholder-gradient" />
-        )}
+    <Link to={`/products/${product.id}`} className="product-card">
+      {product.discountPercent > 0 && <span className="badge-tag">{product.discountPercent}% OFF</span>}
+      <img className="thumb" src={product.imageUrl || "https://placehold.co/300x300"} alt={product.name} />
+      <p className="name">{product.name}</p>
+      <div className="price-row">
+        <span className="price-final">{formatCurrency(product.price)}</span>
+        {product.mrp > product.price && <span className="price-mrp">{formatCurrency(product.mrp)}</span>}
+        {product.discountPercent > 0 && <span className="price-discount">{product.discountPercent}% off</span>}
       </div>
-      <div className="product-body">
-        <p className="eyebrow">{product.category?.name || "General"}</p>
-        <h3>{product.name}</h3>
-        <p className="muted-text product-description">
-          {product.description || "Freshly published by the retailer."}
-        </p>
-        <div className="product-meta muted-text">
-          <span>{product.retailer?.companyName || "Retailer"}</span>
-          <span>{product.inventory} in stock</span>
-        </div>
-        <div className="product-footer">
-          <strong>${Number(product.price).toFixed(2)}</strong>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => onAddToCart(product)}
-            disabled={!product.inventory}
-          >
-            {product.inventory ? "Add to cart" : "Out of stock"}
-          </button>
-        </div>
+      <div className={`stock-line${outOfStock ? " out" : lowStock ? " low" : ""}`}>
+        {outOfStock ? "Out of stock" : lowStock ? `Only ${product.inventory} left` : "In stock"}
       </div>
-    </article>
+    </Link>
   );
 }
-
-export default ProductCard;

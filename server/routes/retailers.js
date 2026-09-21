@@ -2,11 +2,20 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../middlewares/auth");
 const requireRole = require("../middlewares/require-role");
+const requirePermission = require("../middlewares/require-permission");
 const {
   registerRetailer,
   loginRetailer,
   getRetailerProfile,
+  updateRetailerProfile,
 } = require("../controllers/retailers/auth");
+const {
+  inviteStaff,
+  listStaff,
+  updateStaff,
+  removeStaff,
+  loginStaff,
+} = require("../controllers/retailers/staff");
 const {
   listCategories,
   createCategory,
@@ -17,29 +26,99 @@ const {
   deleteProduct,
   getRetailerDashboard,
 } = require("../controllers/retailers/catalog");
+const {
+  listRetailerOrders,
+  getRetailerOrder,
+  updateOrderItemStatus,
+} = require("../controllers/retailers/orders");
+
+const retailer = auth;
+const asRetailer = requireRole("retailer");
 
 router.post("/auth/register", registerRetailer);
 router.post("/auth/login", loginRetailer);
-router.get("/auth/me", auth, requireRole("retailer"), getRetailerProfile);
-router.get("/dashboard", auth, requireRole("retailer"), getRetailerDashboard);
+router.post("/staff/login", loginStaff);
+router.get("/auth/me", retailer, asRetailer, getRetailerProfile);
+router.patch("/auth/me", retailer, asRetailer, updateRetailerProfile);
 
-router.get("/categories", auth, requireRole("retailer"), listCategories);
-router.post("/categories", auth, requireRole("retailer"), createCategory);
-router.delete("/categories/:id", auth, requireRole("retailer"), deleteCategory);
+router.get("/dashboard", retailer, asRetailer, getRetailerDashboard);
 
-router.get("/products", auth, requireRole("retailer"), listProducts);
-router.post("/products", auth, requireRole("retailer"), createProduct);
-router.patch("/products/:id", auth, requireRole("retailer"), updateProduct);
-router.delete("/products/:id", auth, requireRole("retailer"), deleteProduct);
-
-router.post("/addUser", registerRetailer);
-router.post("/checkLogin", loginRetailer);
-router.get("/getUser", auth, requireRole("retailer"), getRetailerProfile);
+router.get("/categories", retailer, asRetailer, listCategories);
+router.post(
+  "/categories",
+  retailer,
+  asRetailer,
+  requirePermission("categories.write"),
+  createCategory,
+);
 router.delete(
-  "/deleteCategory/:id",
-  auth,
-  requireRole("retailer"),
+  "/categories/:id",
+  retailer,
+  asRetailer,
+  requirePermission("categories.write"),
   deleteCategory,
+);
+
+router.get("/products", retailer, asRetailer, listProducts);
+router.post(
+  "/products",
+  retailer,
+  asRetailer,
+  requirePermission("products.write"),
+  createProduct,
+);
+router.patch(
+  "/products/:id",
+  retailer,
+  asRetailer,
+  requirePermission("products.write"),
+  updateProduct,
+);
+router.delete(
+  "/products/:id",
+  retailer,
+  asRetailer,
+  requirePermission("products.write"),
+  deleteProduct,
+);
+
+router.get("/orders", retailer, asRetailer, listRetailerOrders);
+router.get("/orders/:id", retailer, asRetailer, getRetailerOrder);
+router.patch(
+  "/orders/:orderId/items/:itemId/status",
+  retailer,
+  asRetailer,
+  requirePermission("orders.updateStatus"),
+  updateOrderItemStatus,
+);
+
+router.get(
+  "/staff",
+  retailer,
+  asRetailer,
+  requirePermission("staff.manage"),
+  listStaff,
+);
+router.post(
+  "/staff",
+  retailer,
+  asRetailer,
+  requirePermission("staff.manage"),
+  inviteStaff,
+);
+router.patch(
+  "/staff/:id",
+  retailer,
+  asRetailer,
+  requirePermission("staff.manage"),
+  updateStaff,
+);
+router.delete(
+  "/staff/:id",
+  retailer,
+  asRetailer,
+  requirePermission("staff.manage"),
+  removeStaff,
 );
 
 module.exports = router;

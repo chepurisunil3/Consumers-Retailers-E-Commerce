@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const connectToMongoDB = require("../config/mongo-connection");
 const Retailer = require("../server/models/retailers/retailers");
+const RetailerStaff = require("../server/models/retailers/retailer-staff");
 const Category = require("../server/models/retailers/categories");
 const Product = require("../server/models/retailers/products");
 const Consumer = require("../server/models/consumers/consumers");
@@ -17,317 +18,523 @@ const slugify = (value = "") =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
+// ---- Retailers: one per industry, India-market fields ----------------------
 const retailerSeed = [
   {
-    companyName: "Tech Haven",
-    contactName: "Amelia Stone",
-    email: "owner@techhaven.com",
-    contactNumber: "+1 555 010 1001",
-    gstNumber: "GST-TECH-1001",
-    panNumber: "PAN-TECH-1001",
+    companyName: "TechBazaar India",
+    contactName: "Rohan Mehta",
+    email: "owner@techbazaar.in",
+    contactNumber: "+91 98200 11223",
+    industry: "electronics",
+    gstNumber: "27AABCT1234C1Z5",
+    panNumber: "AABCT1234C",
     companyLogo:
       "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=400&q=80",
     address: {
-      line1: "241 Silicon Avenue",
-      city: "San Francisco",
-      state: "California",
-      country: "USA",
-      postalCode: "94107",
+      line1: "241 Andheri Industrial Estate",
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+      postalCode: "400053",
     },
+    bankDetails: {
+      accountHolderName: "TechBazaar India Pvt Ltd",
+      accountNumber: "50100123456789",
+      ifscCode: "HDFC0001234",
+      bankName: "HDFC Bank",
+    },
+    onboardingStatus: "verified",
+    staff: [
+      { name: "Priya Nair", role: "manager" },
+      { name: "Karan Shah", role: "sales" },
+    ],
     categories: [
-      {
-        name: "Audio",
-        description: "Headphones, speakers and personal listening devices.",
-        imageUrl:
-          "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80",
-      },
-      {
-        name: "Accessories",
-        description: "Smart accessories and desk essentials for modern setups.",
-        imageUrl:
-          "https://images.unsplash.com/photo-1517336714739-489689fd1ca8?auto=format&fit=crop&w=800&q=80",
-      },
+      { name: "Audio", description: "Headphones, earbuds and speakers." },
+      { name: "Mobile Accessories", description: "Chargers, cases and cables." },
     ],
     products: [
       {
         categoryName: "Audio",
-        name: "Nova Wireless Headphones",
+        name: "Nova Wireless ANC Headphones",
         description:
-          "Premium over-ear headphones with active noise cancellation and 30-hour battery.",
+          "Over-ear headphones with active noise cancellation and 30-hour battery life.",
         imageUrl:
           "https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=900&q=80",
         sku: "TH-AUD-001",
-        price: 189.99,
+        mrp: 6999,
+        discountPercent: 25,
         inventory: 22,
         isFeatured: true,
         tags: ["wireless", "noise-cancelling", "audio"],
+        attributes: { brand: "Nova", warranty: "1 Year", color: "Matte Black" },
       },
       {
-        categoryName: "Accessories",
-        name: "Orbit MagSafe Power Bank",
-        description:
-          "Compact magnetic power bank made for everyday travel and mobile productivity.",
+        categoryName: "Mobile Accessories",
+        name: "Orbit 20W MagSafe Power Bank",
+        description: "Compact magnetic power bank for everyday travel.",
         imageUrl:
           "https://images.unsplash.com/photo-1585338447937-7082f8fc763d?auto=format&fit=crop&w=900&q=80",
         sku: "TH-ACC-002",
-        price: 59.99,
+        mrp: 2499,
+        discountPercent: 15,
         inventory: 48,
         isFeatured: false,
         tags: ["charger", "mobile", "travel"],
+        attributes: { brand: "Orbit", capacity: "10000mAh", warranty: "6 Months" },
       },
       {
-        categoryName: "Accessories",
+        categoryName: "Mobile Accessories",
         name: "Aura Mechanical Keyboard",
-        description:
-          "Low-profile keyboard with tactile switches and RGB underglow.",
+        description: "Low-profile keyboard with tactile switches and RGB underglow.",
         imageUrl:
           "https://images.unsplash.com/photo-1511467687858-23d96c32e4ae?auto=format&fit=crop&w=900&q=80",
         sku: "TH-ACC-003",
-        price: 129.99,
+        mrp: 4999,
+        discountPercent: 10,
         inventory: 12,
         isFeatured: true,
         tags: ["keyboard", "desk-setup", "gaming"],
+        attributes: { brand: "Aura", switchType: "Blue", warranty: "1 Year" },
       },
     ],
   },
   {
-    companyName: "Urban Threads",
-    contactName: "Jordan Miles",
-    email: "hello@urbanthreads.com",
-    contactNumber: "+1 555 010 2002",
-    gstNumber: "GST-FASH-2002",
-    panNumber: "PAN-FASH-2002",
+    companyName: "Desi Threads",
+    contactName: "Ananya Kapoor",
+    email: "hello@desithreads.in",
+    contactNumber: "+91 98100 44556",
+    industry: "fashion",
+    gstNumber: "07AABCD5678D1Z2",
+    panNumber: "AABCD5678D",
     companyLogo:
       "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=400&q=80",
     address: {
-      line1: "52 Market Street",
-      city: "New York",
-      state: "New York",
-      country: "USA",
-      postalCode: "10013",
+      line1: "52 Karol Bagh Market",
+      city: "New Delhi",
+      state: "Delhi",
+      country: "India",
+      postalCode: "110005",
     },
+    bankDetails: {
+      accountHolderName: "Desi Threads",
+      accountNumber: "00461234567890",
+      ifscCode: "ICIC0002345",
+      bankName: "ICICI Bank",
+    },
+    onboardingStatus: "verified",
+    staff: [{ name: "Vikram Rao", role: "manager" }],
     categories: [
-      {
-        name: "Outerwear",
-        description: "Layer-ready jackets for city travel and weekend wear.",
-        imageUrl:
-          "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=800&q=80",
-      },
-      {
-        name: "Footwear",
-        description: "Fashion sneakers built for all-day comfort.",
-        imageUrl:
-          "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80",
-      },
+      { name: "Outerwear", description: "Jackets for city travel and weekend wear." },
+      { name: "Footwear", description: "Fashion sneakers built for all-day comfort." },
     ],
     products: [
       {
         categoryName: "Outerwear",
         name: "Metro Utility Jacket",
-        description:
-          "Water-resistant jacket with lightweight insulation and oversized pockets.",
+        description: "Water-resistant jacket with lightweight insulation.",
         imageUrl:
           "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=900&q=80",
         sku: "UT-OUT-001",
-        price: 119.0,
+        mrp: 3499,
+        discountPercent: 30,
         inventory: 18,
         isFeatured: true,
         tags: ["jacket", "streetwear", "utility"],
+        attributes: { size: "M/L/XL", material: "Polyester", fit: "Regular" },
       },
       {
         categoryName: "Footwear",
         name: "Pulse Street Sneakers",
-        description:
-          "Minimal sneakers with cushioned soles and breathable knit upper.",
+        description: "Minimal sneakers with cushioned soles and breathable knit upper.",
         imageUrl:
           "https://images.unsplash.com/photo-1543508282-6319a3e2621f?auto=format&fit=crop&w=900&q=80",
         sku: "UT-FTW-002",
-        price: 89.5,
+        mrp: 2999,
+        discountPercent: 20,
         inventory: 30,
         isFeatured: true,
         tags: ["sneakers", "fashion", "casual"],
+        attributes: { size: "6-11 UK", material: "Knit", color: "White" },
       },
       {
         categoryName: "Outerwear",
         name: "Cloud Fleece Overshirt",
-        description:
-          "Soft fleece overshirt ideal for layering in transitional weather.",
+        description: "Soft fleece overshirt ideal for layering in transitional weather.",
         imageUrl:
           "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80",
         sku: "UT-OUT-003",
-        price: 72.0,
+        mrp: 1999,
+        discountPercent: 10,
         inventory: 26,
         isFeatured: false,
         tags: ["fleece", "overshirt", "layering"],
+        attributes: { size: "S/M/L", material: "Fleece" },
       },
     ],
   },
   {
-    companyName: "Home Nest",
-    contactName: "Sophia Bennett",
-    email: "care@homenest.com",
-    contactNumber: "+1 555 010 3003",
-    gstNumber: "GST-HOME-3003",
-    panNumber: "PAN-HOME-3003",
+    companyName: "FreshMart Grocers",
+    contactName: "Deepa Iyer",
+    email: "support@freshmart.in",
+    contactNumber: "+91 98450 77889",
+    industry: "grocery",
+    gstNumber: "29AABCF9012F1Z8",
+    panNumber: "AABCF9012F",
     companyLogo:
-      "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=400&q=80",
+      "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80",
     address: {
-      line1: "78 Willow Park",
-      city: "Austin",
-      state: "Texas",
-      country: "USA",
-      postalCode: "73301",
+      line1: "18 Indiranagar 100ft Road",
+      city: "Bengaluru",
+      state: "Karnataka",
+      country: "India",
+      postalCode: "560038",
     },
+    bankDetails: {
+      accountHolderName: "FreshMart Grocers",
+      accountNumber: "62345678901",
+      ifscCode: "SBIN0003456",
+      bankName: "State Bank of India",
+    },
+    onboardingStatus: "verified",
+    staff: [
+      { name: "Meena Pillai", role: "manager" },
+      { name: "Arjun Das", role: "sales" },
+    ],
     categories: [
-      {
-        name: "Decor",
-        description: "Tasteful home accents for warm and minimal spaces.",
-        imageUrl:
-          "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=800&q=80",
-      },
-      {
-        name: "Lighting",
-        description:
-          "Ambient lighting for workspaces, bedrooms and living rooms.",
-        imageUrl:
-          "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=800&q=80",
-      },
+      { name: "Staples", description: "Rice, atta, pulses and cooking essentials." },
+      { name: "Snacks & Beverages", description: "Packaged snacks, tea and beverages." },
     ],
     products: [
       {
-        categoryName: "Decor",
-        name: "Sienna Ceramic Vase",
-        description:
-          "Matte ceramic vase with sculpted silhouette for shelves and dining tables.",
+        categoryName: "Staples",
+        name: "India Gate Basmati Rice 5kg",
+        description: "Premium aged basmati rice, extra-long grain.",
         imageUrl:
-          "https://images.unsplash.com/photo-1517705008128-361805f42e86?auto=format&fit=crop&w=900&q=80",
-        sku: "HN-DEC-001",
-        price: 44.99,
-        inventory: 34,
+          "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=900&q=80",
+        sku: "FM-STP-001",
+        mrp: 699,
+        discountPercent: 12,
+        inventory: 60,
         isFeatured: true,
-        tags: ["vase", "decor", "ceramic"],
+        tags: ["rice", "staples", "grocery"],
+        attributes: { weight: "5kg", brand: "India Gate", perishable: "No" },
       },
       {
-        categoryName: "Lighting",
-        name: "Luma Table Lamp",
-        description:
-          "Soft-glow table lamp with fabric shade and brushed metal base.",
+        categoryName: "Staples",
+        name: "Fortune Sunflower Oil 1L",
+        description: "Light and healthy refined sunflower oil.",
         imageUrl:
-          "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80",
-        sku: "HN-LGT-002",
-        price: 69.0,
-        inventory: 20,
+          "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=900&q=80",
+        sku: "FM-STP-002",
+        mrp: 199,
+        discountPercent: 5,
+        inventory: 80,
         isFeatured: false,
-        tags: ["lamp", "lighting", "bedroom"],
+        tags: ["oil", "cooking", "grocery"],
+        attributes: { weight: "1L", brand: "Fortune", perishable: "No" },
       },
       {
-        categoryName: "Decor",
-        name: "Woven Throw Blanket",
-        description:
-          "Textured throw blanket designed for cozy sofas and layered beds.",
+        categoryName: "Snacks & Beverages",
+        name: "Tata Tea Gold 1kg",
+        description: "Rich and aromatic blend of the finest tea leaves.",
         imageUrl:
-          "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80",
-        sku: "HN-DEC-003",
-        price: 54.5,
-        inventory: 27,
+          "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?auto=format&fit=crop&w=900&q=80",
+        sku: "FM-SNK-003",
+        mrp: 549,
+        discountPercent: 8,
+        inventory: 45,
         isFeatured: true,
-        tags: ["blanket", "textile", "living-room"],
+        tags: ["tea", "beverages", "grocery"],
+        attributes: { weight: "1kg", brand: "Tata", perishable: "No" },
+      },
+    ],
+  },
+  {
+    companyName: "MediCare Pharmacy",
+    contactName: "Dr. Sanjay Kulkarni",
+    email: "care@medicarepharmacy.in",
+    contactNumber: "+91 98220 99001",
+    industry: "pharmacy",
+    gstNumber: "27AABCM3456M1Z1",
+    panNumber: "AABCM3456M",
+    companyLogo:
+      "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?auto=format&fit=crop&w=400&q=80",
+    address: {
+      line1: "78 FC Road",
+      city: "Pune",
+      state: "Maharashtra",
+      country: "India",
+      postalCode: "411005",
+    },
+    bankDetails: {
+      accountHolderName: "MediCare Pharmacy",
+      accountNumber: "91023456789012",
+      ifscCode: "AXIS0004567",
+      bankName: "Axis Bank",
+    },
+    onboardingStatus: "pending",
+    staff: [{ name: "Neha Joshi", role: "sales" }],
+    categories: [
+      { name: "Wellness", description: "Vitamins, supplements and personal care." },
+      { name: "Devices", description: "Home healthcare monitoring devices." },
+    ],
+    products: [
+      {
+        categoryName: "Wellness",
+        name: "Multivitamin Effervescent Tablets (20s)",
+        description: "Daily multivitamin with Vitamin C, D3 and Zinc.",
+        imageUrl:
+          "https://images.unsplash.com/photo-1550572017-edd951b55104?auto=format&fit=crop&w=900&q=80",
+        sku: "MC-WEL-001",
+        mrp: 399,
+        discountPercent: 18,
+        inventory: 70,
+        isFeatured: true,
+        tags: ["wellness", "vitamins", "immunity"],
+        attributes: { prescriptionRequired: "No", pack: "20 tablets" },
+      },
+      {
+        categoryName: "Devices",
+        name: "Digital Blood Pressure Monitor",
+        description: "Automatic upper-arm BP monitor with large LCD display.",
+        imageUrl:
+          "https://images.unsplash.com/photo-1579154204601-01588f351e67?auto=format&fit=crop&w=900&q=80",
+        sku: "MC-DEV-002",
+        mrp: 1999,
+        discountPercent: 22,
+        inventory: 15,
+        isFeatured: true,
+        tags: ["healthcare", "devices", "bp-monitor"],
+        attributes: { prescriptionRequired: "No", warranty: "2 Years" },
       },
     ],
   },
 ];
 
+// ---- Consumers: Indian names, addresses, multiple saved addresses ---------
 const consumerSeed = [
   {
-    name: "Olivia Parker",
-    email: "olivia.parker@example.com",
-    mobileNumber: "+1 555 200 1001",
+    name: "Aditi Sharma",
+    email: "aditi.sharma@example.com",
+    mobileNumber: "+91 98765 43210",
     profilePhoto:
       "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80",
-    shippingAddress: {
-      line1: "11 Riverwalk Lane",
-      city: "Seattle",
-      state: "Washington",
-      country: "USA",
-      postalCode: "98101",
-    },
+    addresses: [
+      {
+        label: "Home",
+        line1: "11 Riverwalk Lane, Koregaon Park",
+        city: "Pune",
+        state: "Maharashtra",
+        postalCode: "411001",
+        phone: "+91 98765 43210",
+        isDefault: true,
+      },
+      {
+        label: "Office",
+        line1: "3rd Floor, Cybercity IT Park",
+        city: "Pune",
+        state: "Maharashtra",
+        postalCode: "411014",
+        phone: "+91 98765 43210",
+        isDefault: false,
+      },
+    ],
   },
   {
-    name: "Noah Collins",
-    email: "noah.collins@example.com",
-    mobileNumber: "+1 555 200 1002",
+    name: "Rahul Verma",
+    email: "rahul.verma@example.com",
+    mobileNumber: "+91 90000 11122",
     profilePhoto:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80",
-    shippingAddress: {
-      line1: "844 Ocean Drive",
-      city: "Miami",
-      state: "Florida",
-      country: "USA",
-      postalCode: "33139",
-    },
+    addresses: [
+      {
+        label: "Home",
+        line1: "844 Marine Drive Apartments",
+        city: "Mumbai",
+        state: "Maharashtra",
+        postalCode: "400020",
+        phone: "+91 90000 11122",
+        isDefault: true,
+      },
+    ],
   },
   {
-    name: "Mia Thompson",
-    email: "mia.thompson@example.com",
-    mobileNumber: "+1 555 200 1003",
+    name: "Sneha Reddy",
+    email: "sneha.reddy@example.com",
+    mobileNumber: "+91 93000 22233",
     profilePhoto:
       "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=400&q=80",
-    shippingAddress: {
-      line1: "92 Maple Street",
-      city: "Denver",
-      state: "Colorado",
-      country: "USA",
-      postalCode: "80202",
-    },
+    addresses: [
+      {
+        label: "Home",
+        line1: "92 Jubilee Hills Road No. 3",
+        city: "Hyderabad",
+        state: "Telangana",
+        postalCode: "500033",
+        phone: "+91 93000 22233",
+        isDefault: true,
+      },
+    ],
   },
   {
-    name: "Liam Brooks",
-    email: "liam.brooks@example.com",
-    mobileNumber: "+1 555 200 1004",
+    name: "Arjun Nair",
+    email: "arjun.nair@example.com",
+    mobileNumber: "+91 95000 33344",
     profilePhoto:
       "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80",
-    shippingAddress: {
-      line1: "304 Garden Terrace",
-      city: "Chicago",
-      state: "Illinois",
-      country: "USA",
-      postalCode: "60601",
-    },
+    addresses: [
+      {
+        label: "Home",
+        line1: "304 Garden Terrace, Indiranagar",
+        city: "Bengaluru",
+        state: "Karnataka",
+        postalCode: "560038",
+        phone: "+91 95000 33344",
+        isDefault: true,
+      },
+    ],
+  },
+  {
+    name: "Kavya Iyer",
+    email: "kavya.iyer@example.com",
+    mobileNumber: "+91 96000 44455",
+    profilePhoto:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80",
+    addresses: [
+      {
+        label: "Home",
+        line1: "27 T Nagar Main Road",
+        city: "Chennai",
+        state: "Tamil Nadu",
+        postalCode: "600017",
+        phone: "+91 96000 44455",
+        isDefault: true,
+      },
+    ],
+  },
+  {
+    name: "Ishaan Gupta",
+    email: "ishaan.gupta@example.com",
+    mobileNumber: "+91 97000 55566",
+    profilePhoto:
+      "https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=400&q=80",
+    addresses: [
+      {
+        label: "Home",
+        line1: "15 Connaught Place",
+        city: "New Delhi",
+        state: "Delhi",
+        postalCode: "110001",
+        phone: "+91 97000 55566",
+        isDefault: true,
+      },
+    ],
   },
 ];
 
-const orderSeedBlueprint = [
+// One blueprint per order. `itemStatuses` walks each line item through its
+// full statusHistory so the seeded data covers every state the UI needs to
+// render (pending, accepted, dispatched, delivered, cancelled, returned...).
+const orderBlueprints = [
   {
-    consumerEmail: "olivia.parker@example.com",
-    paymentMethod: "card",
-    itemSpecs: [
-      { sku: "TH-AUD-001", quantity: 1 },
-      { sku: "HN-DEC-001", quantity: 2 },
+    consumerEmail: "aditi.sharma@example.com",
+    paymentMethod: "cod",
+    items: [{ sku: "TH-AUD-001", quantity: 1, path: ["pending"] }],
+  },
+  {
+    consumerEmail: "aditi.sharma@example.com",
+    paymentMethod: "mock-online",
+    items: [{ sku: "FM-STP-001", quantity: 2, path: ["pending", "accepted"] }],
+  },
+  {
+    consumerEmail: "rahul.verma@example.com",
+    paymentMethod: "cod",
+    items: [
+      { sku: "UT-FTW-002", quantity: 1, path: ["pending", "accepted", "dispatched"] },
     ],
   },
   {
-    consumerEmail: "noah.collins@example.com",
-    paymentMethod: "card",
-    itemSpecs: [
-      { sku: "UT-FTW-002", quantity: 1 },
-      { sku: "UT-OUT-001", quantity: 1 },
+    consumerEmail: "rahul.verma@example.com",
+    paymentMethod: "mock-online",
+    items: [
+      {
+        sku: "TH-ACC-003",
+        quantity: 1,
+        path: ["pending", "accepted", "dispatched", "out_for_delivery"],
+      },
     ],
   },
   {
-    consumerEmail: "mia.thompson@example.com",
-    paymentMethod: "card",
-    itemSpecs: [
-      { sku: "TH-ACC-003", quantity: 1 },
-      { sku: "TH-ACC-002", quantity: 1 },
-      { sku: "HN-LGT-002", quantity: 1 },
+    consumerEmail: "sneha.reddy@example.com",
+    paymentMethod: "cod",
+    items: [
+      {
+        sku: "MC-WEL-001",
+        quantity: 1,
+        path: ["pending", "accepted", "dispatched", "out_for_delivery", "delivered"],
+      },
     ],
   },
   {
-    consumerEmail: "liam.brooks@example.com",
-    paymentMethod: "card",
-    itemSpecs: [
-      { sku: "HN-DEC-003", quantity: 1 },
-      { sku: "UT-OUT-003", quantity: 2 },
+    consumerEmail: "sneha.reddy@example.com",
+    paymentMethod: "cod",
+    items: [{ sku: "UT-OUT-001", quantity: 1, path: ["pending", "declined"] }],
+  },
+  {
+    consumerEmail: "arjun.nair@example.com",
+    paymentMethod: "cod",
+    items: [{ sku: "TH-ACC-002", quantity: 1, path: ["pending", "cancelled"] }],
+  },
+  {
+    consumerEmail: "arjun.nair@example.com",
+    paymentMethod: "mock-online",
+    items: [
+      {
+        sku: "MC-DEV-002",
+        quantity: 1,
+        path: [
+          "pending",
+          "accepted",
+          "dispatched",
+          "out_for_delivery",
+          "delivered",
+          "return_requested",
+        ],
+      },
+    ],
+  },
+  {
+    consumerEmail: "kavya.iyer@example.com",
+    paymentMethod: "mock-online",
+    items: [
+      {
+        sku: "FM-SNK-003",
+        quantity: 3,
+        path: [
+          "pending",
+          "accepted",
+          "dispatched",
+          "out_for_delivery",
+          "delivered",
+          "return_requested",
+          "returned",
+        ],
+      },
+    ],
+  },
+  {
+    // A split-shipment order: one retailer's item is delivered while the
+    // other retailer's item is still pending -> order rolls up to
+    // "partially_fulfilled".
+    consumerEmail: "ishaan.gupta@example.com",
+    paymentMethod: "cod",
+    items: [
+      {
+        sku: "UT-OUT-003",
+        quantity: 1,
+        path: ["pending", "accepted", "dispatched", "out_for_delivery", "delivered"],
+      },
+      { sku: "FM-STP-002", quantity: 2, path: ["pending"] },
     ],
   },
 ];
@@ -338,12 +545,14 @@ async function clearCollections() {
     Product.deleteMany({}),
     Category.deleteMany({}),
     Consumer.deleteMany({}),
+    RetailerStaff.deleteMany({}),
     Retailer.deleteMany({}),
   ]);
 }
 
 async function createRetailersCategoriesProducts(passwordHash) {
   const retailerDocs = [];
+  const staffDocs = [];
   const categoryMap = new Map();
   const productDocs = [];
 
@@ -354,13 +563,27 @@ async function createRetailersCategoriesProducts(passwordHash) {
       email: retailerData.email,
       password: passwordHash,
       contactNumber: retailerData.contactNumber,
+      industry: retailerData.industry,
       gstNumber: retailerData.gstNumber,
       panNumber: retailerData.panNumber,
       companyLogo: retailerData.companyLogo,
       address: retailerData.address,
+      bankDetails: retailerData.bankDetails,
+      onboardingStatus: retailerData.onboardingStatus,
     });
-
     retailerDocs.push(retailer);
+
+    for (const staffData of retailerData.staff || []) {
+      const email = `${slugify(staffData.name)}@${retailer.email.split("@")[1]}`;
+      const staff = await RetailerStaff.create({
+        retailer: retailer._id,
+        name: staffData.name,
+        email,
+        password: passwordHash,
+        role: staffData.role,
+      });
+      staffDocs.push(staff);
+    }
 
     for (const categoryData of retailerData.categories) {
       const category = await Category.create({
@@ -368,9 +591,8 @@ async function createRetailersCategoriesProducts(passwordHash) {
         name: categoryData.name,
         slug: slugify(categoryData.name),
         description: categoryData.description,
-        imageUrl: categoryData.imageUrl,
+        imageUrl: retailerData.companyLogo,
       });
-
       categoryMap.set(`${retailer.email}:${category.name}`, category);
     }
 
@@ -386,80 +608,103 @@ async function createRetailersCategoriesProducts(passwordHash) {
         description: productData.description,
         imageUrl: productData.imageUrl,
         sku: productData.sku,
-        price: productData.price,
+        mrp: productData.mrp,
+        discountPercent: productData.discountPercent,
         inventory: productData.inventory,
         isFeatured: productData.isFeatured,
         isActive: true,
         tags: productData.tags,
+        attributes: productData.attributes,
       });
-
       productDocs.push(product);
     }
   }
 
-  return { retailerDocs, productDocs };
+  return { retailerDocs, staffDocs, productDocs };
 }
 
 async function createConsumers(passwordHash) {
-  return Consumer.insertMany(
-    consumerSeed.map((consumer) => ({
-      ...consumer,
+  const docs = [];
+  for (const consumerData of consumerSeed) {
+    const consumer = await Consumer.create({
+      ...consumerData,
       password: passwordHash,
-    })),
-  );
+    });
+    docs.push(consumer);
+  }
+  return docs;
 }
 
 async function createOrders(consumers, products) {
-  const consumerMap = new Map(
-    consumers.map((consumer) => [consumer.email, consumer]),
-  );
-  const productMap = new Map(products.map((product) => [product.sku, product]));
+  const consumerMap = new Map(consumers.map((c) => [c.email, c]));
+  const productMap = new Map(products.map((p) => [p.sku, p]));
 
-  for (const blueprint of orderSeedBlueprint) {
+  for (const blueprint of orderBlueprints) {
     const consumer = consumerMap.get(blueprint.consumerEmail);
-    const items = blueprint.itemSpecs.map((spec) => {
-      const product = productMap.get(spec.sku);
-      const lineTotal = Number((product.price * spec.quantity).toFixed(2));
+    const orderItems = [];
 
-      return {
+    for (const itemSpec of blueprint.items) {
+      const product = productMap.get(itemSpec.sku);
+      const lineTotal = Number((product.finalPrice * itemSpec.quantity).toFixed(2));
+      const finalStatus = itemSpec.path[itemSpec.path.length - 1];
+
+      orderItems.push({
         product: product._id,
         retailer: product.retailer,
         category: product.category,
         name: product.name,
         imageUrl: product.imageUrl,
-        quantity: spec.quantity,
-        unitPrice: product.price,
+        quantity: itemSpec.quantity,
+        unitPrice: product.finalPrice,
         lineTotal,
-      };
-    });
+        status: finalStatus,
+        statusHistory: itemSpec.path.map((status, index) => ({
+          status,
+          note: "",
+          at: new Date(Date.now() - (itemSpec.path.length - index) * 86400000),
+        })),
+      });
+
+      // Stock stays reserved unless the item ended in a state that frees it.
+      if (!["declined", "cancelled", "returned"].includes(finalStatus)) {
+        await Product.updateOne(
+          { _id: product._id },
+          { $inc: { inventory: -itemSpec.quantity } },
+        );
+      }
+    }
 
     const subtotal = Number(
-      items.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2),
+      orderItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2),
     );
-    const shippingFee = subtotal > 100 ? 0 : 4.99;
+    const shippingFee = subtotal > 1000 ? 0 : 49;
     const total = Number((subtotal + shippingFee).toFixed(2));
 
-    await Order.create({
+    const order = new Order({
       consumer: consumer._id,
-      items,
-      status: "confirmed",
+      items: orderItems,
       paymentMethod: blueprint.paymentMethod,
+      paymentStatus: orderItems.some((i) => i.status === "delivered")
+        ? "paid"
+        : blueprint.paymentMethod === "mock-online"
+          ? "paid"
+          : "pending",
       subtotal,
       shippingFee,
       total,
-      shippingAddress: consumer.shippingAddress,
+      shippingAddress: {
+        label: consumer.addresses[0]?.label || "Home",
+        line1: consumer.addresses[0]?.line1 || "",
+        city: consumer.addresses[0]?.city || "",
+        state: consumer.addresses[0]?.state || "",
+        country: "India",
+        postalCode: consumer.addresses[0]?.postalCode || "",
+        phone: consumer.addresses[0]?.phone || "",
+      },
     });
 
-    await Promise.all(
-      blueprint.itemSpecs.map(async (spec) => {
-        const product = productMap.get(spec.sku);
-        product.inventory -= spec.quantity;
-        await Product.updateOne(
-          { _id: product._id },
-          { $inc: { inventory: -spec.quantity } },
-        );
-      }),
-    );
+    order.recomputeStatus();
+    await order.save();
   }
 }
 
@@ -469,13 +714,14 @@ async function runSeed() {
     await clearCollections();
 
     const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, SALT_ROUNDS);
-    const { retailerDocs, productDocs } =
+    const { retailerDocs, staffDocs, productDocs } =
       await createRetailersCategoriesProducts(passwordHash);
     const consumerDocs = await createConsumers(passwordHash);
     await createOrders(consumerDocs, productDocs);
 
     const counts = await Promise.all([
       Retailer.countDocuments(),
+      RetailerStaff.countDocuments(),
       Category.countDocuments(),
       Product.countDocuments(),
       Consumer.countDocuments(),
@@ -483,18 +729,15 @@ async function runSeed() {
     ]);
 
     console.log("Seed completed successfully.");
-    console.log(`Retailers: ${counts[0]}`);
-    console.log(`Categories: ${counts[1]}`);
-    console.log(`Products: ${counts[2]}`);
-    console.log(`Consumers: ${counts[3]}`);
-    console.log(`Orders: ${counts[4]}`);
-    console.log(`Default password for all seeded users: ${DEFAULT_PASSWORD}`);
-    console.log(
-      `Retailer accounts: ${retailerDocs.map((retailer) => retailer.email).join(", ")}`,
-    );
-    console.log(
-      `Consumer accounts: ${consumerDocs.map((consumer) => consumer.email).join(", ")}`,
-    );
+    console.log(`Retailers: ${counts[0]} | Staff: ${counts[1]} | Categories: ${counts[2]}`);
+    console.log(`Products: ${counts[3]} | Consumers: ${counts[4]} | Orders: ${counts[5]}`);
+    console.log(`\nDefault password for every seeded account: ${DEFAULT_PASSWORD}\n`);
+    console.log("Retailer owner logins:");
+    retailerDocs.forEach((r) => console.log(`  ${r.email}  (${r.industry})`));
+    console.log("\nRetailer staff logins (use the Team Login):");
+    staffDocs.forEach((s) => console.log(`  ${s.email}  (${s.role})`));
+    console.log("\nConsumer logins:");
+    consumerDocs.forEach((c) => console.log(`  ${c.email}`));
   } catch (error) {
     console.error("Seed failed.");
     console.error(error);
