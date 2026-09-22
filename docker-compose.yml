@@ -1,0 +1,47 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    env_file:
+      - .env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/rect-with-node
+    ports:
+      - "4000:4000"
+
+  retailers:
+    build:
+      context: ./retailers
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: http://localhost:4000
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
+
+  consumers:
+    build:
+      context: ./consumers
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: http://localhost:4000
+    depends_on:
+      - api
+    ports:
+      - "3002:80"
+
+volumes:
+  mongo-data:

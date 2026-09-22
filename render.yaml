@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: crec-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: MONGODB_URI
+        sync: false
+      - key: tokenSecretKey
+        sync: false
+      - key: saltRounds
+        value: 10
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
