@@ -36,6 +36,10 @@ export const consumerApi = {
   deleteAddress: (token, id) => request(`/api/consumers/addresses/${id}`, { method: "DELETE", token }),
 
   getCategories: () => request("/api/store/categories"),
+  // Source of truth for shipping pricing lives on the backend
+  // (server/config/shipping.js) so what's shown here always matches what
+  // orders.js actually charges.
+  getShippingConfig: () => request("/api/store/shipping-config"),
   getProducts: (params = {}) => {
     const search = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {

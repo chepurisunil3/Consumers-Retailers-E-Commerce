@@ -1,5 +1,6 @@
 const Category = require("../../models/retailers/categories");
 const Product = require("../../models/retailers/products");
+const { SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } = require("../../config/shipping");
 
 const serializeCategory = (category) => ({
   id: category._id,
@@ -173,9 +174,20 @@ const getSuggestedProducts = async (req, res) => {
   }
 };
 
+// Public endpoint so the frontend can read the real shipping fee / free
+// shipping threshold instead of hardcoding its own (out of sync) copies.
+// See server/config/shipping.js for the source of truth.
+const getShippingConfig = async (req, res) => {
+  return res.status(200).json({
+    success: true,
+    data: { shippingFee: SHIPPING_FEE, freeShippingThreshold: FREE_SHIPPING_THRESHOLD },
+  });
+};
+
 module.exports = {
   listStoreCategories,
   listStoreProducts,
   getStoreProductById,
   getSuggestedProducts,
+  getShippingConfig,
 };

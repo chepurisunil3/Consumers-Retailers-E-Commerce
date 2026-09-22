@@ -1,18 +1,33 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import StorefrontLayout from "../components/StorefrontLayout";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import { consumerApi } from "../services/api";
 import { formatCurrency } from "../utils/format";
 
-const SHIPPING_FEE = 49;
-const FREE_SHIPPING_THRESHOLD = 1000;
+// Fallback values match the backend default (server/config/shipping.js) so
+// totals are still correct before the real config has loaded. The fetched
+// config is always the source of truth — see consumerApi.getShippingConfig.
+const DEFAULT_SHIPPING_CONFIG = { shippingFee: 4.99, freeShippingThreshold: 100 };
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, subtotal } = useCart();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [shippingConfig, setShippingConfig] = useState(DEFAULT_SHIPPING_CONFIG);
 
-  const shippingFee = subtotal > FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : SHIPPING_FEE;
+  useEffect(() => {
+    consumerApi
+      .getShippingConfig()
+      .then((res) => setShippingConfig(res.data))
+      .catch(() => {
+        // Non-critical background fetch — keep the correct default values.
+      });
+  }, []);
+
+  const shippingFee =
+    subtotal > shippingConfig.freeShippingThreshold || subtotal === 0 ? 0 : shippingConfig.shippingFee;
   const total = subtotal + shippingFee;
 
   const handleCheckout = () => {

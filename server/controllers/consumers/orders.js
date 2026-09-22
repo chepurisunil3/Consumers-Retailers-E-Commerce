@@ -1,8 +1,6 @@
 const Product = require("../../models/retailers/products");
 const Order = require("../../models/consumers/orders");
-
-const SHIPPING_FEE = 4.99;
-const FREE_SHIPPING_THRESHOLD = 100;
+const { SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } = require("../../config/shipping");
 
 const serializeOrder = (order) => ({
   id: order._id,

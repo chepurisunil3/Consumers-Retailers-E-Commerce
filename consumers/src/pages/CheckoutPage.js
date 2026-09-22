@@ -8,8 +8,10 @@ import { consumerApi } from "../services/api";
 import { formatCurrency } from "../utils/format";
 
 const emptyAddress = { label: "Home", line1: "", city: "", state: "", postalCode: "", phone: "" };
-const SHIPPING_FEE = 49;
-const FREE_SHIPPING_THRESHOLD = 1000;
+// Fallback values match the backend default (server/config/shipping.js) so
+// totals are still correct before the real config has loaded. The fetched
+// config is always the source of truth — see consumerApi.getShippingConfig.
+const DEFAULT_SHIPPING_CONFIG = { shippingFee: 4.99, freeShippingThreshold: 100 };
 
 export default function CheckoutPage() {
   const { token } = useAuth();
@@ -22,22 +24,35 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [error, setError] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [shippingConfig, setShippingConfig] = useState(DEFAULT_SHIPPING_CONFIG);
 
   useEffect(() => {
-    consumerApi.getAddresses(token).then((res) => {
-      setAddresses(res.data);
-      const defaultAddress = res.data.find((a) => a.isDefault) || res.data[0];
-      if (defaultAddress) setSelectedId(defaultAddress._id);
-      else setNewAddress(emptyAddress);
-    });
+    consumerApi
+      .getAddresses(token)
+      .then((res) => {
+        setAddresses(res.data);
+        const defaultAddress = res.data.find((a) => a.isDefault) || res.data[0];
+        if (defaultAddress) setSelectedId(defaultAddress._id);
+        else setNewAddress(emptyAddress);
+      })
+      .catch((err) => setError(err.message));
   }, [token]);
+
+  useEffect(() => {
+    consumerApi
+      .getShippingConfig()
+      .then((res) => setShippingConfig(res.data))
+      .catch(() => {
+        // Non-critical background fetch — keep the correct default values.
+      });
+  }, []);
 
   if (items.length === 0) {
     navigate("/cart");
     return null;
   }
 
-  const shippingFee = subtotal > FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const shippingFee = subtotal > shippingConfig.freeShippingThreshold ? 0 : shippingConfig.shippingFee;
   const total = subtotal + shippingFee;
 
   const handlePlaceOrder = async () => {
