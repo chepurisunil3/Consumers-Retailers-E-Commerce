@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import StorefrontLayout from "../components/StorefrontLayout";
 import StatusBadge from "../components/StatusBadge";
+import Banner from "../components/Banner";
 import { useAuth } from "../context/AuthContext";
 import { consumerApi } from "../services/api";
 import { formatCurrency, formatDate } from "../utils/format";
@@ -10,14 +11,20 @@ export default function OrdersPage() {
   const { token } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    consumerApi.getOrders(token).then((res) => setOrders(res.data)).finally(() => setLoading(false));
+    consumerApi
+      .getOrders(token)
+      .then((res) => setOrders(res.data))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   }, [token]);
 
   return (
     <StorefrontLayout>
       <h2>Your orders</h2>
+      <Banner>{error}</Banner>
       {loading ? (
         <div className="empty-state">Loading…</div>
       ) : orders.length === 0 ? (

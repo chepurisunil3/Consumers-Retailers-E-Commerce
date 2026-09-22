@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import StorefrontLayout from "../components/StorefrontLayout";
 import ProductCard from "../components/ProductCard";
+import Banner from "../components/Banner";
 import { consumerApi } from "../services/api";
 
 const SORT_OPTIONS = [
@@ -16,6 +17,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const q = searchParams.get("q") || "";
   const categoryId = searchParams.get("categoryId") || "";
@@ -23,7 +25,10 @@ export default function ProductsPage() {
   const onDiscount = searchParams.get("onDiscount") || "";
 
   useEffect(() => {
-    consumerApi.getCategories().then((res) => setCategories(res.data));
+    consumerApi
+      .getCategories()
+      .then((res) => setCategories(res.data))
+      .catch((err) => setError(err.message));
   }, []);
 
   useEffect(() => {
@@ -31,6 +36,7 @@ export default function ProductsPage() {
     consumerApi
       .getProducts({ q, categoryId, sort, onDiscount })
       .then((res) => setProducts(res.data))
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [q, categoryId, sort, onDiscount]);
 
@@ -45,6 +51,7 @@ export default function ProductsPage() {
       <div className="page-header" style={{ marginBottom: 6 }}>
         <h2 style={{ margin: 0 }}>{q ? `Results for "${q}"` : "All Products"}</h2>
       </div>
+      <Banner>{error}</Banner>
 
       <div className="filter-bar">
         <button className={`pill-tab${!categoryId ? " active" : ""}`} onClick={() => updateParam("categoryId", "")}>
