@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require("../middlewares/auth");
 const requireRole = require("../middlewares/require-role");
 const requirePermission = require("../middlewares/require-permission");
+const checkObjectId = require("../middlewares/check-object-id");
 const {
   registerRetailer,
   loginRetailer,
@@ -56,6 +57,7 @@ router.delete(
   retailer,
   asRetailer,
   requirePermission("categories.write"),
+  checkObjectId("id"),
   deleteCategory,
 );
 
@@ -72,6 +74,7 @@ router.patch(
   retailer,
   asRetailer,
   requirePermission("products.write"),
+  checkObjectId("id"),
   updateProduct,
 );
 router.delete(
@@ -79,11 +82,12 @@ router.delete(
   retailer,
   asRetailer,
   requirePermission("products.write"),
+  checkObjectId("id"),
   deleteProduct,
 );
 
 router.get("/orders", retailer, asRetailer, listRetailerOrders);
-router.get("/orders/:id", retailer, asRetailer, getRetailerOrder);
+router.get("/orders/:id", retailer, asRetailer, checkObjectId("id"), getRetailerOrder);
 router.patch(
   "/orders/:orderId/items/:itemId/status",
   retailer,
